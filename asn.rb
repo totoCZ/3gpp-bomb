@@ -53,23 +53,70 @@ output_file = 'mcc-mnc_updated.csv'
 
 csv_data = CSV.read(input_file, col_sep: ';', headers: true)
 CSV.open(output_file, 'w', col_sep: ';') do |csv|
-  csv << csv_data.headers + ['as_num_domain', 'as_name_domain', 'as_num_rcs', 'as_name_rcs']
-  
+  # Add new headers, considering existing ones might or might not be there.
+  original_headers = csv_data.headers
+  new_headers = ['as_num_domain', 'as_name_domain', 'as_num_rcs', 'as_name_rcs']
+  all_headers = original_headers.dup  # Create a copy to avoid modifying the original
+
+  # Add new headers only if they aren't already present.
+  new_headers.each do |header|
+    all_headers << header unless all_headers.include?(header)
+  end
+    
+  csv << all_headers
+
   csv_data.each do |row|
+    # Initialize AS info (important to do this inside the loop for each row).
     as_domain = { as_num: nil, as_name: nil }
     as_rcs = { as_num: nil, as_name: nil }
-    
+
+    # Process vowifi domain
     if row['vowifi'] == '1'
-      domain_ip = resolve_ip(row['domain'])
-      as_domain = domain_ip ? query_cymru_dns(domain_ip) : { as_num: nil, as_name: nil }
+      # Check if AS info is already present in the source data.  Use row.field() to get the original value.
+      if row.field('as_num_domain').to_s.strip.empty?
+        puts "processing #{row['domain']}"
+        domain_ip = resolve_ip(row['domain'])
+        as_domain = domain_ip ? query_cymru_dns(domain_ip) : { as_num: nil, as_name: nil }
+      else
+        # Keep existing data if present
+        as_domain = { as_num: row.field('as_num_domain'), as_name: row.field('as_name_domain') }
+      end
     end
-    
+
+
+    # Process RCS domain
     if row['rcs'] == '1'
-      rcs_ip = resolve_ip(row['rcs_domain'])
-      as_rcs = rcs_ip ? query_cymru_dns(rcs_ip) : { as_num: nil, as_name: nil }
+      # Check if AS info is already present in the source data.
+      if row.field('as_num_rcs').to_s.strip.empty?
+        puts "processing #{row['rcs_domain']}"
+        rcs_ip = resolve_ip(row['rcs_domain'])
+        as_rcs = rcs_ip ? query_cymru_dns(rcs_ip) : { as_num: nil, as_name: nil }
+      else
+        # Keep existing data if present
+        as_rcs = { as_num: row.field('as_num_rcs'), as_name: row.field('as_name_rcs') }
+      end
     end
-    
-    csv << row.fields + [as_domain[:as_num], as_domain[:as_name], as_rcs[:as_num], as_rcs[:as_name]]
+
+
+    # Prepare the row to be written, ensuring correct order and handling missing headers.
+    row_to_write = []
+    all_headers.each do |header|
+      case header
+      when 'as_num_domain'
+        row_to_write << as_domain[:as_num]
+      when 'as_name_domain'
+        row_to_write << as_domain[:as_name]
+      when 'as_num_rcs'
+        row_to_write << as_rcs[:as_num]
+      when 'as_name_rcs'
+        row_to_write << as_rcs[:as_name]
+      else
+        # Handle cases where the original header is not present in a particular row
+        row_to_write << (row.header?(header) ? row[header] : nil)
+      end
+    end
+
+    csv << row_to_write
   end
 end
 
