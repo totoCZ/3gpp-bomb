@@ -3,11 +3,10 @@
 require 'csv'
 require 'open3'
 
-# Method to parse mtr output and extract IPs with matching ASN
 def parse_mtr_output(output, target_asn)
   ips = []
   output.lines.reverse_each do |line|
-    if line =~ /\s+(\d+)\.\s+AS(\d+)\s+([\d\.]+)/
+    if line =~ /\s+(\d+)\.\s+AS(\d+)\s+([\d\.]+|[a-fA-F0-9:]+)/
       hop, asn, ip = $1, $2, $3
       ips << ip if asn == target_asn
     end
