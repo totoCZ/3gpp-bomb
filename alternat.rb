@@ -39,7 +39,6 @@ def process_csv(input_file, output_file)
     csv << headers # Write headers
 
     csv_data.each do |row|
-      next if row['ip4']&.strip&.length&.positive? || row['ip6']&.strip&.length&.positive?
       
       if row['vowifi'] == '1' && row['pingable'] == '0'
         domain = row['domain']
