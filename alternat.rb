@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require 'csv'
+require 'ipaddr'
 require 'open3'
 
 def parse_mtr_output(output, target_asn)
@@ -19,13 +20,28 @@ def parse_mtr_output(output, target_asn)
   extracted_ips
 end
 
-# Method to check if IP is pingable
 def ping_ip(ip, attempts = 2)
-  cmd = "ping -i 0.1 -c #{attempts} -t 1 #{ip}"
+  # Validate and determine IP version
+  ip_addr = IPAddr.new(ip)
+  is_ipv6 = ip_addr.ipv6?
+  
+  # Use ping for IPv4 and ping6 for IPv6 with appropriate parameters
+  if is_ipv6
+    # -i 0.1: interval between pings, -c: count, -W: timeout in seconds
+    cmd = "ping6 -i 0.1 -c #{attempts} #{ip}"
+  else
+    # -i 0.1: interval between pings, -c: count, -t: TTL (used as timeout approximation)
+    cmd = "ping -i 0.1 -c #{attempts} -t 1 #{ip}"
+  end
+  
   stdout, stderr, status = Open3.capture3(cmd)
   puts "Pinging IP #{ip}: #{status.success? ? 'Success' : 'Failed'}"
   status.success?
-rescue
+rescue IPAddr::InvalidAddressError
+  puts "Invalid IP address: #{ip}"
+  false
+rescue StandardError => e
+  puts "Error pinging IP #{ip}: #{e.message}"
   false
 end
 
