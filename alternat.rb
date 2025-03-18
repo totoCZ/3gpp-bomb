@@ -4,15 +4,19 @@ require 'csv'
 require 'open3'
 
 def parse_mtr_output(output, target_asn)
-  ips = []
-  output.lines.reverse_each do |line|
-    if line =~ /\s+(\d+)\.\s+AS(\d+)\s+([\d\.]+|[a-fA-F0-9:]+)/
-      hop, asn, ip = $1, $2, $3
-      ips << ip if asn == target_asn
-    end
+  extracted_ips = []
+  
+  output.each_line.reverse_each do |line|
+    columns = line.strip.split
+    next unless columns.size > 2
+    
+    asn = columns[1][/AS(\d+)/, 1]
+    ip = columns[2] if columns[2] =~ /\b(?:\d{1,3}\.){3}\d{1,3}\b|(?:[a-fA-F0-9:]+:+)+[a-fA-F0-9]+\b/
+    
+    extracted_ips << ip if asn == target_asn.to_s && ip
   end
-  puts "Extracted IPs for ASN #{target_asn} (from last hop first): #{ips}"
-  ips
+  puts "Extracted IPs for ASN #{target_asn} (from last hop first): #{extracted_ips}"
+  extracted_ips
 end
 
 # Method to check if IP is pingable
@@ -46,14 +50,14 @@ def process_csv(input_file, output_file)
 
         # Process IPv4
         if row['ip4'].to_s.strip.empty?
-          output, _ = Open3.capture2("sudo mtr -n -r -z -w -c 2 -4 -i 0.1 #{domain}")
+          output, _ = Open3.capture2("sudo mtr -n -r -z -w -c 5 -4 -i 0.5 #{domain}")
           puts "MTR IPv4 Output for #{domain}:\n#{output}"
           row['ip4'] = parse_mtr_output(output, as_num_domain).find { |ip| ping_ip(ip) }
         end
 
         # Process IPv6
         if row['ip6'].to_s.strip.empty?
-          output, _ = Open3.capture2("sudo mtr -n -r -z -w -c 2 -6 -i 0.1 #{domain}")
+          output, _ = Open3.capture2("sudo mtr -n -r -z -w -c 5 -6 -i 0.5 #{domain}")
           puts "MTR IPv6 Output for #{domain}:\n#{output}"
           row['ip6'] = parse_mtr_output(output, as_num_domain).find { |ip| ping_ip(ip) }
         end
@@ -65,14 +69,14 @@ def process_csv(input_file, output_file)
 
           # IPv4 RCS
           if row['ip4'].to_s.strip.empty?
-            output, _ = Open3.capture2("sudo mtr -n -r -z -w -c 2 -4 -i 0.1 #{rcs_domain}")
+            output, _ = Open3.capture2("sudo mtr -n -r -z -w -c 5 -4 -i 0.5 #{rcs_domain}")
             puts "MTR IPv4 Output for #{rcs_domain}:\n#{output}"
             row['ip4'] = parse_mtr_output(output, as_num_domain).find { |ip| ping_ip(ip) }
           end
 
           # IPv6 RCS
           if row['ip6'].to_s.strip.empty?
-            output, _ = Open3.capture2("sudo mtr -n -r -z -w -c 2 -6 -i 0.1 #{rcs_domain}")
+            output, _ = Open3.capture2("sudo mtr -n -r -z -w -c 5 -6 -i 0.5 #{rcs_domain}")
             puts "MTR IPv6 Output for #{rcs_domain}:\n#{output}"
             row['ip6'] = parse_mtr_output(output, as_num_domain).find { |ip| ping_ip(ip) }
           end
