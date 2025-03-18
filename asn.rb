@@ -6,7 +6,9 @@ require 'resolv'
 def resolve_ip(domain)
   begin
     resolver = Resolv::DNS.new
-    ip_address = resolver.getaddress(domain)
+    ip_address = resolver.getresources(domain, Resolv::DNS::Resource::IN::A)
+    ip_address = ip_address.map(&:address)[0]
+    puts ip_address
     return ip_address.to_s  # Convert to string for easy use
   rescue Resolv::ResolvError => e
     # Handle resolution failures (e.g., domain doesn't exist)
@@ -28,6 +30,7 @@ def query_cymru_dns(ip)
         origin_data = origin_resources.first.data.split('|').map(&:strip)
         
         as_num = origin_data[0].split(" ")[0]
+        #puts "asn #{as_num}"
         # If we got an AS number, query for the AS name
         if as_num
           as_name_query = "AS#{as_num}.asn.cymru.com"
@@ -35,8 +38,11 @@ def query_cymru_dns(ip)
           if as_name_resources.any?
             as_name_data = as_name_resources.first.data.split('|').map(&:strip)
             as_name = as_name_data.last  # AS Name is typically the last element
+            #puts "name #{as_name}"
             return { as_num: as_num, as_name: as_name }
           end
+        else
+          puts "ERR"
         end
       end
     end
