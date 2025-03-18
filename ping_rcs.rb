@@ -48,7 +48,7 @@ def process_csv(input_filename, output_filename)
 
   # Add new columns
   csv_data.headers << 'rcs'
-  csv_data.headers << 'pingable'
+  csv_data.headers << 'rcs_pingable'
     csv_data.headers << 'rcs_domain'
 
   # Process each row
