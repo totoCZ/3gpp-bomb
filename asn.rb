@@ -26,8 +26,8 @@ def query_cymru_dns(ip)
       origin_resources = dns.getresources(origin_query, Resolv::DNS::Resource::IN::TXT)
       if origin_resources.any?
         origin_data = origin_resources.first.data.split('|').map(&:strip)
-        as_num = origin_data[0]
-
+        
+        as_num = origin_data[0].split(" ")[0]
         # If we got an AS number, query for the AS name
         if as_num
           as_name_query = "AS#{as_num}.asn.cymru.com"
